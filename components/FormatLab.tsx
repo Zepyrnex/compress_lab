@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtBytes } from "@/lib/analyze";
 import { FormatResult, Item, KINDS, Opts, compressFormat, defaultOpts, kindOf } from "@/lib/formats";
 
@@ -7,35 +7,88 @@ export default function FormatLab({ files }: { files: Item[] }) {
   const kind = kindOf(files);
   const [o, setO] = useState<Opts>(defaultOpts);
   const [res, setRes] = useState<FormatResult | null>(null);
+  const [previousSize, setPreviousSize] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const requestId = useRef(0);
+  const lastSize = useRef<number | null>(null);
+  const set = (p: Partial<Opts>) => {
+    requestId.current += 1;
+    setBusy(true);
+    setErr("");
+    setRes(null);
+    setO((current) => ({ ...current, ...p }));
+  };
+  const run = useCallback(async (options: Opts = o) => {
+    if (!kind) return;
+    const id = ++requestId.current;
+    setBusy(true);
+    setErr("");
+    try {
+      const next = await compressFormat(kind, files, options);
+      if (id !== requestId.current) {
+        if (next.origUrl) URL.revokeObjectURL(next.origUrl);
+        if (next.previewUrl) URL.revokeObjectURL(next.previewUrl);
+        return;
+      }
+      setPreviousSize(lastSize.current);
+      lastSize.current = next.data.length;
+      setRes(next);
+    } catch (e) {
+      if (id === requestId.current) setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (id === requestId.current) setBusy(false);
+    }
+  }, [files, kind, o]);
+
+  useEffect(() => {
+    requestId.current += 1;
+    lastSize.current = null;
+    setPreviousSize(null);
+  }, [files]);
+
+  useEffect(() => {
+    if (!kind) return;
+    const timer = setTimeout(() => { void run(o); }, 250);
+    return () => clearTimeout(timer);
+  }, [kind, o, run]);
+
+  useEffect(() => () => { requestId.current += 1; }, []);
+
+  useEffect(() => {
+    if (!res) return;
+    return () => {
+      if (res.origUrl) URL.revokeObjectURL(res.origUrl);
+      if (res.previewUrl) URL.revokeObjectURL(res.previewUrl);
+    };
+  }, [res]);
+
   if (!kind) return null;
 
   const info = KINDS[kind];
   const total = files.reduce((s, f) => s + f.bytes.length, 0);
-  const set = (p: Partial<Opts>) => setO({ ...o, ...p });
-  const run = async () => {
-    setBusy(true); setErr(""); setRes(null);
-    try { setRes(await compressFormat(kind, files, o)); }
-    catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
-  };
   const download = () => {
     if (!res) return;
     const base = files.length > 1 ? "archive" : files[0].name.replace(/\.[^.]+$/, "");
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([res.data as BlobPart], { type: res.mime }));
-    a.download = `${base}-compressed.${res.ext}`; a.click();
+    const url = URL.createObjectURL(new Blob([res.data as BlobPart], { type: res.mime }));
+    a.href = url;
+    a.download = `${base}-compressed.${res.ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
-  const saved = res ? (1 - res.data.length / total) * 100 : 0;
+  const saved = res ? (total ? (1 - res.data.length / total) * 100 : 0) : 0;
+  const change = res && previousSize !== null ? ((res.data.length - previousSize) / Math.max(1, previousSize)) * 100 : null;
 
   return (
-    <section className="panel">
-      <p className="sec-label lbl"><b>02</b> / Format-aware</p>
-      <h2 className="glitch" style={{ marginBottom: "0.8rem" }}>Format-aware compression</h2>
-      <p className="note top0">
-        {info.label} detected. Library: <b>{info.lib}</b>. This goes beyond the byte-level methods above.
-      </p>
+    <section className="panel format-panel" aria-busy={busy}>
+      <div className="format-head">
+        <div>
+          <p className="sec-label lbl"><b>04</b> / Format-aware</p>
+          <h2>{info.label}</h2>
+        </div>
+        <span className="lbl" role="status">{busy ? "Updating preview…" : res ? "Live preview" : "Ready"}</span>
+      </div>
       <div className="opts">
         {kind === "image" && (<>
           <label>Output format
@@ -74,18 +127,22 @@ export default function FormatLab({ files }: { files: Item[] }) {
             <input type="range" min={1} max={9} value={o.level} onChange={(e) => set({ level: +e.target.value })} />
           </label>
         )}
-        <button className="pill dark" onClick={run} disabled={busy}>{busy ? "Working…" : kind === "zip" ? "Create ZIP" : "Compress"}</button>
+        <button className="pill dark" onClick={() => { void run(); }} disabled={busy}>{busy ? "Updating…" : kind === "zip" ? "Create ZIP" : "Compress"}</button>
       </div>
       {err && <p className="error" role="alert">{err}</p>}
       {res && (
         <div className="fresult">
           <div className="summary">
             <div><span className="k">Original</span><b className="v">{fmtBytes(total)}</b></div>
-            <div><span className="k">Compressed</span><b className="v">{fmtBytes(res.data.length)}</b></div>
+            <div>
+              <span className="k">Compressed</span>
+              <b className="v">{fmtBytes(res.data.length)}</b>
+              <small>{change === null ? "Initial settings" : change === 0 ? "No size change" : `${Math.abs(change).toFixed(1)}% ${change < 0 ? "smaller" : "larger"} vs previous`}</small>
+            </div>
             <div><span className="k">Ratio</span><b className="v">{(total / Math.max(1, res.data.length)).toFixed(2)} : 1</b></div>
             <div><span className="k">{saved >= 0 ? "Saved" : "Grew by"}</span><b className={"v" + (saved < 0 ? " neg" : "")}>{Math.abs(saved).toFixed(1)}%</b></div>
           </div>
-          <p className="note">{res.note} Done in {res.ms < 1 ? "<1" : res.ms.toFixed(0)} ms.</p>
+          <p className="format-meta">{res.ext.toUpperCase()} · {res.ms < 1 ? "<1" : res.ms.toFixed(0)} ms</p>
           {res.previewUrl && res.origUrl && (
             <div className="previews">
               <figure><img src={res.origUrl} alt="Original" /><figcaption>Original</figcaption></figure>

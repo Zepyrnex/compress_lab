@@ -1,22 +1,20 @@
 "use client";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AlgoResult, HNode, buildCodes, buildTree, countFreq, runAll, symLabel } from "@/lib/compress";
 import { FileInfo, detectType, entropy, fmtBytes as fmt } from "@/lib/analyze";
 import { Item } from "@/lib/formats";
 import HuffmanTree from "@/components/HuffmanTree";
 import FormatLab from "@/components/FormatLab";
-import HeroTree from "@/components/HeroTree";
 import FitTitle from "@/components/FitTitle";
 
 const MAX = 25 * 1024 * 1024;
 const enc = (s: string) => new TextEncoder().encode(s);
-const FORMATS = ["JPG", "PNG", "WEBP", "GIF", "AVIF", "PDF", "SVG", "JSON", "CSS", "JS", "HTML", "WAV", "MP3", "ZIP", "TXT"];
 
-const SAMPLES: { label: string; name: string; type: string; note: string; make: () => Uint8Array }[] = [
-  { label: "ABRACADABRA", name: "abracadabra.txt", type: "Text · 11 B", note: "The classic Huffman example", make: () => enc("ABRACADABRA") },
-  { label: "Repeated text", name: "repeated.txt", type: "Text · repetitive", note: "LZSS and Deflate shine", make: () => enc("Data structures make compression possible. ".repeat(200)) },
-  { label: "One letter", name: "same-letter.txt", type: "Text · 1 symbol", note: "Best case for RLE", make: () => enc("a".repeat(5000)) },
-  { label: "Random bytes", name: "random.bin", type: "Binary · random", note: "Incompressible: output grows", make: () => crypto.getRandomValues(new Uint8Array(8000)) },
+const SAMPLES: { label: string; name: string; make: () => Uint8Array }[] = [
+  { label: "ABRACADABRA", name: "abracadabra.txt", make: () => enc("ABRACADABRA") },
+  { label: "Repeated text", name: "repeated.txt", make: () => enc("Data structures make compression possible. ".repeat(200)) },
+  { label: "One letter", name: "same-letter.txt", make: () => enc("a".repeat(5000)) },
+  { label: "Random bytes", name: "random.bin", make: () => crypto.getRandomValues(new Uint8Array(8000)) },
 ];
 
 interface Row { byte: number; freq: number; pct: number; code: string; }
@@ -51,10 +49,16 @@ export default function Home() {
   const [text, setText] = useState("");
   const [drag, setDrag] = useState(false);
   const [multi, setMulti] = useState<Item[] | null>(null);
+  const [uploadError, setUploadError] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const formatFiles = useMemo(
+    () => data ? [{ name: data.name, bytes: data.bytes }] : [],
+    [data],
+  );
 
   const process = (bytes: Uint8Array, name: string) => {
-    if (bytes.length > MAX) { setError("This demo handles files up to 25 MB. Pick a smaller file."); return; }
+    if (bytes.length > MAX) { setError("Files are limited to 25 MB."); return; }
+    setUploadError("");
     setBusy(true); setError(""); setMulti(null);
     setTimeout(() => {
       try { setData(analyse(bytes, name)); }
@@ -65,7 +69,8 @@ export default function Home() {
   const onFiles = async (list?: FileList | null) => {
     const files = Array.from(list ?? []);
     if (!files.length) return;
-    if (files.reduce((n, f) => n + f.size, 0) > MAX) { setError("This demo handles up to 25 MB in total. Pick smaller files."); return; }
+    if (files.reduce((n, f) => n + f.size, 0) > MAX) { setUploadError("Files are limited to 25 MB total."); return; }
+    setUploadError("");
     if (files.length === 1) { process(new Uint8Array(await files[0].arrayBuffer()), files[0].name); return; }
     const items = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
     setError(""); setData(null); setMulti(items);
@@ -83,74 +88,54 @@ export default function Home() {
   return (
     <main className="wrap" id="top">
       <section className="hero">
-        <div className="cell hero-l">
-          <div className="cell-top lbl"><span>01 / Compression index</span><span className="live">Live</span></div>
-          <div>
+        <div className="hero-l">
+          <p className="sec-label lbl"><b>01</b> / Compression lab</p>
+          <div className="hero-content">
             <FitTitle lines={["Compression", "Lab"]} dot="." />
-            <p className="sub">Compression you can see, for text, images, PDFs, audio and archives. Compare RLE, Huffman, LZSS and Deflate, then squeeze files further with real image, PDF, audio and code libraries.</p>
+            <p className="sub">Compress. Compare. Understand.</p>
             <div className="cta">
               <button className="pill dark" onClick={() => input.current?.click()}>Choose a file</button>
               <button className="pill light" onClick={() => process(enc("ABRACADABRA"), "abracadabra.txt")}>Try ABRACADABRA</button>
             </div>
           </div>
         </div>
-
-        <div className="cell fig" aria-hidden>
-          <div className="cell-top lbl"><span>Fig. 01</span><span>Huffman tree</span></div>
-          <div className="fig-body">
-            <i className="plus a">+</i><i className="plus b">+</i>
-            <HeroTree />
-          </div>
-          <div className="fig-foot lbl"><span>ABRACADABRA → 23 bits</span><span className="live">Live</span></div>
-        </div>
-
-        <div className="cell hero-r">
-          <div className="intro">
-            <p className="lbl" style={{ marginBottom: "0.8rem" }}>Builder / In your browser</p>
-            <p>Upload a file and see <b>how much smaller</b> it gets, which method wins, and why. Nothing leaves your device.</p>
-          </div>
-          <ol className="algo-list">
-            <li><span>01</span><span>RLE</span><span>Runs</span></li>
-            <li><span>02</span><span>Huffman</span><span>Frequencies</span></li>
-            <li><span>03</span><span>LZSS</span><span>Back-references</span></li>
-            <li><span>04</span><span>Deflate</span><span>LZ + Huffman</span></li>
-          </ol>
-          <label
-            className={"drop" + (drag ? " drag" : "")}
-            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={(e) => { e.preventDefault(); setDrag(false); onFiles(e.dataTransfer.files); }}
-          >
-            <input ref={input} type="file" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square" aria-hidden><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>
-            <strong>Drop files here</strong>
-            <span>or click to browse. Pick several files to bundle them into a ZIP. Up to 25 MB, processed in your browser.</span>
-          </label>
-        </div>
       </section>
 
-      <div className="marquee" aria-hidden>
-        <div>{[0, 1].map((k) => FORMATS.map((f) => <b key={k + f}>{f}</b>))}</div>
-      </div>
+      <section className="upload-panel" id="upload">
+        <div className="upload-title">
+          <p className="sec-label lbl"><b>02</b> / Add files</p>
+          <h2>Drop a file.</h2>
+        </div>
+        <label
+          className={"drop" + (drag ? " drag" : "")}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setDrag(false); onFiles(e.dataTransfer.files); }}
+        >
+          <input ref={input} type="file" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square" aria-hidden><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>
+          <strong>Drop or browse</strong>
+          <span>Up to 25 MB</span>
+        </label>
+        {uploadError && <p className="error" role="alert">{uploadError}</p>}
+      </section>
 
       <section className="panel lab" id="lab">
         <div>
-          <div className="sec-head"><h2 className="glitch">Samples</h2><span className="lbl">{SAMPLES.length} records</span></div>
-          <div className="rec-head lbl"><span>No.</span><span>Record</span><span>Type</span><span>Why try it</span><span /></div>
+          <div className="sec-head"><h2 className="glitch">Samples</h2></div>
+          <div className="rec-head lbl"><span>No.</span><span>Record</span><span /></div>
           {SAMPLES.map((s, i) => (
             <button key={s.label} className="rec" onClick={() => process(s.make(), s.name)}>
               <span className="n">{String(i + 1).padStart(2, "0")}</span>
               <span className="name">{s.label}</span>
-              <span className="t">{s.type}</span>
-              <span className="d">{s.note}</span>
               <span className="go" aria-hidden>↗</span>
             </button>
           ))}
         </div>
         <div>
-          <div className="sec-head"><h2 className="glitch">Your text</h2><span className="lbl">Input</span></div>
+          <div className="sec-head"><h2 className="glitch">Text input</h2></div>
           <div className="txt-box">
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="Type or paste some text…" />
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="Paste text" />
             <button className="pill dark" disabled={!text} onClick={() => process(enc(text), "typed-text.txt")}>Compress text</button>
           </div>
         </div>
@@ -160,11 +145,7 @@ export default function Home() {
         {error && <p className="error" role="alert">{error}</p>}
         {busy && <p className="busy">Compressing…</p>}
 
-        {!data && !multi && !busy && (
-          <p className="empty">Nothing compressed yet. Upload a file or pick a sample to see the results.</p>
-        )}
-
-        {multi && <FormatLab key={multi.map((f) => f.name).join()} files={multi} />}
+        {multi && <FormatLab key={multi.map((f) => `${f.name}:${f.bytes.length}`).join("|")} files={multi} />}
 
       {data && best && (
         <>
@@ -176,7 +157,7 @@ export default function Home() {
           </section>
 
           <section className="panel">
-            <p className="sec-label lbl"><b>02</b> / Comparison</p>
+            <p className="sec-label lbl"><b>03</b> / Comparison</p>
             <h2 className="glitch" style={{ marginBottom: "1.2rem" }}>Comparison</h2>
             <div className="scroll">
               <table>
@@ -206,18 +187,13 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
-            <p className="note">
-              {gain
-                ? `${best.algo} gives the smallest output for this file. Each result is decompressed and checked byte by byte against the original.`
-                : "None of the methods made this file smaller. Rows above 100% mean the output grew, which happens with already-compressed or random-looking data."}
-            </p>
           </section>
 
-          <FormatLab key={data.name + data.size} files={[{ name: data.name, bytes: data.bytes }]} />
+          <FormatLab key={`${data.name}:${data.size}`} files={formatFiles} />
 
           <section className="panel two">
             <div>
-              <p className="sec-label lbl"><b>03</b> / Analysis</p>
+              <p className="sec-label lbl"><b>05</b> / Analysis</p>
               <h2 className="glitch" style={{ marginBottom: "1.2rem" }}>File analysis</h2>
               <dl>
                 <dt>Detected type</dt><dd>{data.info.label}</dd>
@@ -225,10 +201,9 @@ export default function Home() {
                 <dt>Entropy</dt><dd>{data.entropy.toFixed(2)} bits per byte (8 means random)</dd>
                 <dt>Symbol-coding limit</dt><dd>≈ {fmt(Math.ceil((data.entropy * data.size) / 8))} using byte frequencies alone</dd>
               </dl>
-              <p className="tip">{data.info.tip}</p>
             </div>
             <div>
-              <p className="sec-label lbl"><b>04</b> / Symbols</p>
+              <p className="sec-label lbl"><b>06</b> / Symbols</p>
               <h2 className="glitch" style={{ marginBottom: "1.2rem" }}>Most frequent symbols</h2>
               <table className="small">
                 <thead><tr><th>Symbol</th><th>Count</th><th>Share</th><th>Huffman code</th></tr></thead>
@@ -241,23 +216,17 @@ export default function Home() {
                   ))}
                 </tbody>
               </table>
-              <p className="note">Frequent symbols get shorter codes. That is where Huffman saves space.</p>
             </div>
           </section>
 
           {data.root && (
             <section className="panel">
-              <p className="sec-label lbl"><b>05</b> / Tree</p>
-              <h2 className="glitch" style={{ marginBottom: "0.6rem" }}>How the Huffman tree is built</h2>
-              <p className="note">
-                {data.simplified
-                  ? `Simplified view: the 12 most frequent of ${data.unique} symbols. The real tree has ${data.unique} leaves.`
-                  : "Full tree for this file. Left edge = 0, right edge = 1."}
-              </p>
+              <p className="sec-label lbl"><b>07</b> / Tree</p>
+              <h2 className="glitch" style={{ marginBottom: "0.6rem" }}>Huffman tree</h2>
+              <p className="note">{data.simplified ? `Top 12 of ${data.unique} symbols` : `${data.unique} symbols`}</p>
               <div className="two tree-row">
                 <ol className="steps" start={0}>
-                  <li className="steps-title">Min heap merges the two lowest counts each time:</li>
-                  {data.steps.length === 0 && <li>Only one symbol, so the tree is a single leaf (code 0).</li>}
+                  {data.steps.length === 0 && <li>One symbol (code 0).</li>}
                   {data.steps.slice(0, 20).map((s, i) => <li key={i}>{s}</li>)}
                   {data.steps.length > 20 && <li>…and {data.steps.length - 20} more merges</li>}
                 </ol>
@@ -269,32 +238,13 @@ export default function Home() {
       )}
       </div>
 
-      <section className="panel info" id="info">
-        <div>
-          <p className="sec-label lbl"><b>06</b> / About</p>
-          <h3>Built to be seen</h3>
-          <p>Every method is implemented from scratch and verified: each result is decompressed and compared byte by byte with the original. Format-aware compression uses real libraries, all running in your browser.</p>
-        </div>
-        <div>
-          <p className="sec-label lbl"><b>07</b> / Methods</p>
-          <ul>
-            <li><span>RLE</span><span>Run-length encoding</span></li>
-            <li><span>Huffman</span><span>Frequency-based codes</span></li>
-            <li><span>LZSS</span><span>Sliding-window matches</span></li>
-            <li><span>Deflate</span><span>fflate</span></li>
-          </ul>
-        </div>
-        <div>
-          <p className="sec-label lbl"><b>08</b> / Libraries</p>
-          <ul>
-            <li><span>Images</span><span>upng-js · canvas</span></li>
-            <li><span>PDF</span><span>pdf-lib</span></li>
-            <li><span>Audio</span><span>lamejs (MP3)</span></li>
-            <li><span>Code</span><span>terser · csso · svgo</span></li>
-          </ul>
+      <section className="panel methods" id="info">
+        <p className="sec-label lbl"><b>08</b> / Methods</p>
+        <div className="method-list">
+          <span>RLE</span><span>Huffman</span><span>LZSS</span><span>Deflate</span>
         </div>
       </section>
-      <p className="foot lbl"><span>File Compression Lab</span><span>Compress · Compare · Visualize</span></p>
+      <p className="foot lbl"><span>File Compression Lab</span></p>
     </main>
   );
 }
