@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { HNode, symLabel } from "@/lib/compress";
 
 interface P { node: HNode; x: number; y: number; l?: P; r?: P; }
@@ -9,9 +10,14 @@ function layout(n: HNode, d: number, c: { i: number }): P {
 }
 
 export default function HuffmanTree({ root }: { root: HNode }) {
+  const container = useRef<HTMLDivElement>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
   const counter = { i: 0 };
   const tree = layout(root, 0, counter);
-  const GX = 72, GY = 78, PAD = 40;
+  const GX = availableWidth
+    ? Math.max(64, Math.min(150, (availableWidth - 2 * 40) / Math.max(counter.i, 1)))
+    : 72;
+  const GY = 78, PAD = 40;
   let depth = 0;
   const measure = (p: P) => { depth = Math.max(depth, p.y); p.l && measure(p.l); p.r && measure(p.r); };
   measure(tree);
@@ -50,9 +56,21 @@ export default function HuffmanTree({ root }: { root: HNode }) {
   draw(tree);
 
   const w = Math.max(counter.i, 1) * GX + PAD, h = depth * GY + 70;
+
+  useEffect(() => {
+    const el = container.current;
+    if (!el) return;
+    const update = () => setAvailableWidth(el.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="tree-scroll">
-      <svg width={w} height={h} role="img" aria-label="Huffman tree">{edges}{nodes}</svg>
+    <div className="tree-scroll" ref={container}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ minWidth: `${Math.min(w, 1200)}px` }}
+        role="img" aria-label="Huffman tree">{edges}{nodes}</svg>
     </div>
   );
 }

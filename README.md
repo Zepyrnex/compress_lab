@@ -26,6 +26,12 @@ Everything runs **in your browser**. Files are never uploaded anywhere.
 - **Built-in samples:** ABRACADABRA, repeated text, a single repeated letter, and random bytes, to show best and worst cases.
 - **Light and dark themes** with a floating top dock, and a layout that scales from phones to 4K screens.
 
+## Format workspace
+
+The **Formats** navigation tab opens settings for supported image, PDF, SVG, code, text, and audio files. Image quality, output size, PDF metadata, audio bitrate, GZIP level, and ZIP level can be adjusted; the preview reports the compressed size and change from the previous settings.
+
+The catalog also lists formats that need a decoder or encoder not included in this browser-only app. Those entries are visibly marked unavailable rather than producing a misleading output. Audio decoding and some image formats depend on browser support.
+
 ## Getting started
 
 Requires Node.js 18.17 or newer.

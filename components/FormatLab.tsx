@@ -1,11 +1,15 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtBytes } from "@/lib/analyze";
-import { FormatResult, Item, KINDS, Opts, compressFormat, defaultOpts, kindOf } from "@/lib/formats";
+import { FormatResult, Item, KINDS, Kind, Opts, compressFormat, defaultOpts, kindOf } from "@/lib/formats";
 
-export default function FormatLab({ files }: { files: Item[] }) {
-  const kind = kindOf(files);
-  const [o, setO] = useState<Opts>(defaultOpts);
+export default function FormatLab({ files, kindOverride, initialOpts }: {
+  files: Item[];
+  kindOverride?: Kind;
+  initialOpts?: Partial<Opts>;
+}) {
+  const kind = kindOverride ?? kindOf(files);
+  const [o, setO] = useState<Opts>(() => ({ ...defaultOpts, ...initialOpts }));
   const [res, setRes] = useState<FormatResult | null>(null);
   const [previousSize, setPreviousSize] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,7 +79,7 @@ export default function FormatLab({ files }: { files: Item[] }) {
     a.href = url;
     a.download = `${base}-compressed.${res.ext}`;
     a.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const saved = res ? (total ? (1 - res.data.length / total) * 100 : 0) : 0;
   const change = res && previousSize !== null ? ((res.data.length - previousSize) / Math.max(1, previousSize)) * 100 : null;
@@ -122,8 +126,8 @@ export default function FormatLab({ files }: { files: Item[] }) {
             </select>
           </label>
         )}
-        {kind === "zip" && (
-          <label>Deflate level: {o.level}
+        {(kind === "zip" || kind === "text") && (
+          <label>{kind === "zip" ? "Deflate level" : "GZIP level"}: {o.level}
             <input type="range" min={1} max={9} value={o.level} onChange={(e) => set({ level: +e.target.value })} />
           </label>
         )}

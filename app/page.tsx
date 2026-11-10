@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { AlgoResult, HNode, buildCodes, buildTree, countFreq, runAll, symLabel } from "@/lib/compress";
 import { FileInfo, detectType, entropy, fmtBytes as fmt } from "@/lib/analyze";
 import { Item } from "@/lib/formats";
+import FormatCatalog from "@/components/FormatCatalog";
 import HuffmanTree from "@/components/HuffmanTree";
 import FormatLab from "@/components/FormatLab";
 import FitTitle from "@/components/FitTitle";
@@ -238,10 +239,12 @@ export default function Home() {
       )}
       </div>
 
+      <FormatCatalog />
+
       <section className="panel methods" id="info">
-        <p className="sec-label lbl"><b>08</b> / Methods</p>
+        <p className="sec-label lbl"><b>09</b> / Methods</p>
         <div className="method-list">
-          <span>RLE</span><span>Huffman</span><span>LZSS</span><span>Deflate</span>
+          <span>RLE</span><span>Huffman</span><span>LZSS</span><span>Deflate</span><span>GZIP</span>
         </div>
       </section>
       <p className="foot lbl"><span>File Compression Lab</span></p>

@@ -2,7 +2,7 @@
 import type { ZipOptions } from "fflate";
 import UPNG from "upng-js";
 
-export type Kind = "image" | "pdf" | "svg" | "js" | "css" | "json" | "markup" | "audio" | "zip";
+export type Kind = "image" | "pdf" | "svg" | "js" | "css" | "json" | "markup" | "text" | "audio" | "zip";
 export interface Item { name: string; bytes: Uint8Array }
 export interface Opts {
   imageFormat: "webp" | "jpeg" | "png"; quality: number; colors: number; maxWidth: number;
@@ -23,6 +23,7 @@ export const KINDS: Record<Kind, { label: string; lib: string }> = {
   css: { label: "CSS", lib: "csso" },
   json: { label: "JSON", lib: "JSON.parse + stringify" },
   markup: { label: "HTML / XML", lib: "built-in whitespace stripper" },
+  text: { label: "Text file", lib: "fflate (GZIP)" },
   audio: { label: "Audio", lib: "Web Audio + lamejs (MP3)" },
   zip: { label: "Several files → ZIP", lib: "fflate" },
 };
@@ -47,6 +48,7 @@ export function kindOf(files: Item[]): Kind | null {
   if (e === "css") return "css";
   if (e === "json") return "json";
   if (["html", "htm", "xml"].includes(e)) return "markup";
+  if (["txt", "text", "md", "log", "csv"].includes(e)) return "text";
   if (["wav", "mp3", "ogg", "flac", "m4a", "aac"].includes(e)) return "audio";
   return null;
 }
@@ -141,10 +143,29 @@ async function audio(f: Item, o: Opts): Promise<Out> {
 
 async function zip(files: Item[], o: Opts): Promise<Out> {
   const { zipSync } = await import("fflate");
-  const obj: Record<string, Uint8Array> = {};
-  files.forEach((f) => (obj[f.name] = f.bytes));
+  const obj: Record<string, Uint8Array> = Object.create(null);
+  files.forEach((f, index) => {
+    const name = f.name || `file-${index + 1}`;
+    const dot = name.lastIndexOf(".");
+    const stem = dot > 0 ? name.slice(0, dot) : name;
+    const suffix = dot > 0 ? name.slice(dot) : "";
+    let uniqueName = name;
+    let duplicate = 2;
+    while (Object.hasOwn(obj, uniqueName)) uniqueName = `${stem} (${duplicate++})${suffix}`;
+    obj[uniqueName] = f.bytes;
+  });
   const data = zipSync(obj, { level: o.level as ZipOptions["level"] });
   return { data, ext: "zip", mime: "application/zip", note: `${files.length} files bundled with Deflate level ${o.level} (fflate).` };
+}
+
+async function compressTextFile(f: Item, o: Opts): Promise<Out> {
+  const { gzipSync } = await import("fflate");
+  return {
+    data: gzipSync(f.bytes, { level: o.level as ZipOptions["level"] }),
+    ext: "gz",
+    mime: "application/gzip",
+    note: `GZIP compressed with Deflate level ${o.level}.`,
+  };
 }
 
 export async function compressFormat(kind: Kind, files: Item[], o: Opts): Promise<FormatResult> {
@@ -154,6 +175,7 @@ export async function compressFormat(kind: Kind, files: Item[], o: Opts): Promis
     kind === "pdf" ? await pdf(f, o) :
     kind === "audio" ? await audio(f, o) :
     kind === "zip" ? await zip(files, o) :
+    kind === "text" ? await compressTextFile(f, o) :
     await code(kind, f);
   return { ...r, ms: performance.now() - t };
 }

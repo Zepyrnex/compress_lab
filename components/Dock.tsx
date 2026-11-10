@@ -5,6 +5,7 @@ const LINKS = [
   { id: "top", label: "Index" },
   { id: "lab", label: "Lab" },
   { id: "results", label: "Results" },
+  { id: "formats", label: "Formats" },
   { id: "info", label: "Info" },
 ];
 
