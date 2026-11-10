@@ -41,6 +41,8 @@ export default function CursorField() {
       ctx.clearRect(0, 0, w, h);
       if (energy < 0.03) return;
       const bucket = Math.floor(now / 170);
+      const dark = root.dataset.theme === "dark";
+      const base = dark ? "205,214,240" : "20,24,48", accent = dark ? "#4d7bff" : "#1b4dff", strong = dark ? "255,255,255" : "5,5,10";
       ctx.font = "10px ui-monospace, Consolas, monospace";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       const gx0 = Math.floor((sx - RADIUS) / CELL), gx1 = Math.ceil((sx + RADIUS) / CELL);
@@ -52,9 +54,9 @@ export default function CursorField() {
         const r = hash(gx, gy, bucket), keep = hash(gx, gy, 7);
         if (keep > t * 1.15) continue;
         const kind = hash(gx, gy, 3);
-        if (kind < 0.04) { ctx.fillStyle = "#c9f500"; ctx.fillRect(x - 1.5, y - 1.5, 3, 3); continue; }
+        if (kind < 0.04) { ctx.fillStyle = accent; ctx.fillRect(x - 1.5, y - 1.5, 3, 3); continue; }
         const near = t > 0.55;
-        ctx.fillStyle = kind > 0.9 && near ? `rgba(16,16,16,${0.55 + 0.4 * t})` : `rgba(50,50,44,${0.2 + 0.5 * t})`;
+        ctx.fillStyle = kind > 0.9 && near ? `rgba(${strong},${0.55 + 0.4 * t})` : `rgba(${base},${0.2 + 0.5 * t})`;
         ctx.fillText(near ? GLYPHS[Math.floor(r * GLYPHS.length)] : r > 0.5 ? "." : "+", x, y);
       }
     };
@@ -72,7 +74,7 @@ export default function CursorField() {
     <>
       <canvas ref={cv} className="field" aria-hidden />
       <div ref={arrow} className="arrow" aria-hidden>
-        <svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 2 L18 10 L11 12 L9 19 Z" fill="#fff" stroke="#101010" strokeWidth="1.6" strokeLinejoin="round" /></svg>
+        <svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 2 L18 10 L11 12 L9 19 Z" strokeWidth="1.6" strokeLinejoin="round" /></svg>
       </div>
     </>
   );

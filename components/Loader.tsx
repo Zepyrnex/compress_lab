@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const pad = (n: number) => String(n).padStart(3, "0");
 
-/** Short intro: percentage counter, node network inside a ring, lime-to-black progress bar. */
+/** Short intro: percentage counter, node network inside a ring, blue progress bar. */
 export default function Loader() {
   const [pct, setPct] = useState(0);
   const [phase, setPhase] = useState<"run" | "out" | "gone">("run");
@@ -43,11 +43,11 @@ export default function Loader() {
       <div className="ld-list ld-r"><span>Deflate {pad(Math.min(100, pct * 1.05 | 0))}%</span><span>Images {pad(Math.min(100, pct * 0.9 | 0))}%</span><span>PDF {pad(Math.min(100, pct * 0.85 | 0))}%</span></div>
       <div className="ld-ring">
         <svg viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="49" fill="none" stroke="#d6d6cd" strokeWidth="0.4" />
+          <circle className="ring" cx="50" cy="50" r="49" />
           {net.links.filter((l) => l.i < shown && l.j < shown).map((l, k) => (
-            <line key={k} x1={net.pts[l.i].x} y1={net.pts[l.i].y} x2={net.pts[l.j].x} y2={net.pts[l.j].y} stroke="#9a9a92" strokeWidth="0.25" />
+            <line key={k} x1={net.pts[l.i].x} y1={net.pts[l.i].y} x2={net.pts[l.j].x} y2={net.pts[l.j].y} />
           ))}
-          {net.pts.slice(0, shown).map((p, k) => <circle key={k} cx={p.x} cy={p.y} r={p.s} fill="#101010" />)}
+          {net.pts.slice(0, shown).map((p, k) => <circle key={k} className="pt" cx={p.x} cy={p.y} r={p.s} />)}
         </svg>
         <i className="tick l" /><i className="tick r" />
       </div>

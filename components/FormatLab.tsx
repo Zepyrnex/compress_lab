@@ -31,7 +31,8 @@ export default function FormatLab({ files }: { files: Item[] }) {
 
   return (
     <section className="panel">
-      <h2 className="glitch">Format-aware compression</h2>
+      <p className="sec-label lbl"><b>02</b> / Format-aware</p>
+      <h2 className="glitch" style={{ marginBottom: "0.8rem" }}>Format-aware compression</h2>
       <p className="note top0">
         {info.label} detected. Library: <b>{info.lib}</b>. This goes beyond the byte-level methods above.
       </p>
