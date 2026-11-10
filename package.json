@@ -1,0 +1,29 @@
+{
+  "name": "compression-lab",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "csso": "^5.0.5",
+    "fflate": "^0.8.3",
+    "next": "14.2.15",
+    "pdf-lib": "^1.17.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "svgo": "^4.1.0",
+    "terser": "^5.51.2",
+    "upng-js": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/csso": "^5.0.5",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5.4.5"
+  }
+}
